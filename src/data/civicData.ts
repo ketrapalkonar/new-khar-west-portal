@@ -1,6 +1,6 @@
-import { CivicIssue, WardOfficial, StepGuide, WorkStageInfo, INITIAL_ISSUES as TYPED_INITIAL_ISSUES } from '../types';
+import { CivicIssue, WardOfficial, StepGuide, WorkStageInfo } from '../types';
 
-export const INITIAL_ISSUES: CivicIssue[] = TYPED_INITIAL_ISSUES;
+export const INITIAL_ISSUES: CivicIssue[] = [];
 
 export const WORK_STAGES: WorkStageInfo[] = [
   {

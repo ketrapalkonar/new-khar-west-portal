@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 import { CivicIssue, WorkStage } from '../types';
 import { WORK_STAGES } from '../data/civicData';
 import { 
@@ -280,11 +281,11 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                 </div>
 
                 <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
-                  No active complaints reported yet.
+                  No active spot-fixes reported yet.
                 </h3>
                 
                 <p className="text-sm text-slate-400 max-w-md mx-auto mb-8 leading-relaxed">
-                  Be the first Khar West resident to report a spot-fix!
+                  Click '+ Report Spot-Fix' to log the first issue.
                 </p>
 
                 <button
@@ -292,7 +293,7 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                   className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:scale-105 active:scale-95 transition-all duration-200 inline-flex items-center gap-2.5 cursor-pointer ring-2 ring-emerald-400/20"
                 >
                   <Plus className="w-4 h-4 stroke-[3]" />
-                  <span>+ Report First Spot-Fix</span>
+                  <span>+ Report Spot-Fix</span>
                 </button>
               </div>
             ) : (
@@ -303,9 +304,12 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                   const canPromote = issue.votes >= 50;
 
                   return (
-                    <div
+                    <motion.div
                       key={issue.id}
-                      className="flex flex-col justify-between rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 hover:border-emerald-500/40 transition-all duration-300 shadow-xl overflow-hidden group animate-in fade-in slide-in-from-top-3 duration-300"
+                      initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.35, ease: 'easeOut' }}
+                      className="flex flex-col justify-between rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 hover:border-emerald-500/40 transition-all duration-300 shadow-xl overflow-hidden group"
                     >
                       {/* Card Header */}
                       <div className="p-6 pb-4">
@@ -374,9 +378,10 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                       {/* Card Actions Footer */}
                       <div className="p-4 bg-slate-950/60 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2.5">
                         <div className="flex items-center gap-2">
-                          {/* Upvote Button (+1) */}
+                          {/* Upvote Button (+1 / -1 toggle) */}
                           <button
                             onClick={() => handleVoteClick(issue.id)}
+                            title={isUpvoted ? 'Click to remove vote (-1)' : 'Click to upvote (+1)'}
                             className={`px-4 py-2 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
                               isUpvoted
                                 ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20'
@@ -421,7 +426,7 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                           </button>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -497,7 +502,7 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                   <ShieldCheck className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
-                  No issues currently under Ward Action
+                  No complaints currently under Ward action.
                 </h3>
                 <p className="text-sm text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
                   When Layer 1 community complaints reach 50+ upvotes, they are automatically escalated here with an active BMC SLA countdown timer, contractor deployment, and 4-stage progress tracker.
@@ -527,9 +532,12 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                   const canVerify = currentStage >= 3 || issue.bmcStatus?.toLowerCase().includes('resolved');
 
                   return (
-                    <div
+                    <motion.div
                       key={issue.id}
                       id={`issue-card-${issue.id}`}
+                      initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.35, ease: 'easeOut' }}
                       className="rounded-2xl bg-slate-900/80 backdrop-blur-xl border border-slate-800 hover:border-emerald-500/50 shadow-2xl overflow-hidden transition-all duration-300"
                     >
                       {/* Top Status Header */}
@@ -770,7 +778,7 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                           Send AMC Follow-up Letter &rarr;
                         </button>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -801,10 +809,10 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                   <CheckCircle2 className="w-8 h-8" />
                 </div>
                 <h3 className="text-xl sm:text-2xl font-black text-white tracking-tight mb-2">
-                  No closed fixes in the Hall of Fame yet.
+                  0 Verified Spot-Fixes.
                 </h3>
                 <p className="text-sm text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
-                  When BMC completes work orders and Khar West residents verify the physical fix on the ground in Layer 2, tickets are permanently immortalized here with citizen sign-off and photo proof!
+                  Resolved complaints will appear here after citizen ground check.
                 </p>
                 <div className="flex items-center justify-center gap-3 flex-wrap">
                   <button
@@ -827,9 +835,12 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {currentLayerIssues.map((issue) => {
                   return (
-                    <div
+                    <motion.div
                       key={issue.id}
                       id={`issue-card-${issue.id}`}
+                      initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.35, ease: 'easeOut' }}
                       className="flex flex-col justify-between rounded-2xl bg-slate-900/80 backdrop-blur-xl border border-emerald-500/30 hover:border-emerald-400 transition-all duration-300 shadow-xl overflow-hidden"
                     >
                       <div className="p-6">
@@ -896,7 +907,7 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                           <span>Read Feed ({issue.opinions.length})</span>
                         </button>
                       </div>
-                    </div>
+                    </motion.div>
                   );
                 })}
               </div>

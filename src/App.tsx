@@ -12,17 +12,65 @@ import { Footer } from './components/Footer';
 import { ReportIssueModal } from './components/ReportIssueModal';
 import { TicketTrackerModal } from './components/TicketTrackerModal';
 
+const STORAGE_KEY_ISSUES = 'aamchi_khar_west_civic_issues_v3';
+const STORAGE_KEY_VOTES = 'aamchi_khar_west_user_upvoted_ids_v3';
+
 export default function App() {
   const [issues, setIssues] = useState<CivicIssue[]>(() => {
+    try {
+      localStorage.removeItem('aamchi_khar_west_civic_issues');
+      localStorage.removeItem('aamchi_khar_west_civic_issues_v2');
+      const saved = localStorage.getItem(STORAGE_KEY_ISSUES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+      }
+    } catch {
+      // fallback to empty state
+    }
     return [...INITIAL_ISSUES];
   });
 
   const [activeLayer, setActiveLayer] = useState<1 | 2 | 3>(1);
-  const [upvotedIds, setUpvotedIds] = useState<Set<string>>(() => new Set());
+  const [upvotedIds, setUpvotedIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_VOTES);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return new Set(parsed);
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return new Set<string>();
+  });
+
   const [selectedIssueId, setSelectedIssueId] = useState<string>(() => {
     return INITIAL_ISSUES[0]?.id || '';
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Persist issues to localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_ISSUES, JSON.stringify(issues));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [issues]);
+
+  // Persist upvoted IDs to localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_VOTES, JSON.stringify(Array.from(upvotedIds)));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [upvotedIds]);
 
   // Modals & Drawers state
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
@@ -30,13 +78,17 @@ export default function App() {
   const [isTicketTrackerOpen, setIsTicketTrackerOpen] = useState<boolean>(false);
   const [ticketTrackerQuery, setTicketTrackerQuery] = useState<string>('');
 
-  // Live stats computation
+  // Live stats computation strictly starting from 0
   const totalVotes = useMemo(() => {
     return issues.reduce((acc, issue) => acc + issue.votes, 0);
   }, [issues]);
 
   const activeHotspotsCount = useMemo(() => {
-    return issues.filter(i => i.layer === 1 || i.layer === 2).length;
+    return issues.filter(i => i.layer === 1).length;
+  }, [issues]);
+
+  const underWardActionCount = useMemo(() => {
+    return issues.filter(i => i.layer === 2).length;
   }, [issues]);
 
   const resolvedCount = useMemo(() => {
@@ -50,12 +102,51 @@ export default function App() {
     }, 3500);
   };
 
-  // Upvoting handler with dynamic re-sorting
+  // Upvoting / Downvoting (1-vote-per-user toggle) handler with dynamic re-sorting and Layer 2 auto-escalation
   const handleUpvote = (issueId: string) => {
+    const isCurrentlyUpvoted = upvotedIds.has(issueId);
+
+    // Toggle user vote set
+    setUpvotedIds(prev => {
+      const next = new Set(prev);
+      if (isCurrentlyUpvoted) {
+        next.delete(issueId);
+      } else {
+        next.add(issueId);
+      }
+      return next;
+    });
+
     setIssues(prevIssues => {
+      let escalatedTitle: string | null = null;
+
       const updated = prevIssues.map(issue => {
         if (issue.id === issueId) {
-          const newVotes = issue.votes + 1;
+          const delta = isCurrentlyUpvoted ? -1 : 1;
+          const newVotes = Math.max(0, issue.votes + delta);
+
+          // Auto-escalate from Layer 1 to Layer 2 when reaching 50+ votes
+          if (issue.layer === 1 && newVotes >= 50) {
+            escalatedTitle = issue.title;
+            const randomTicketNumber = Math.floor(10000 + Math.random() * 90000);
+            const ticketId = issue.mcgmTicketId || `HW/2026/${randomTicketNumber}`;
+
+            return {
+              ...issue,
+              votes: newVotes,
+              layer: 2 as const,
+              mcgmTicketId: ticketId,
+              workStage: 1 as WorkStage,
+              bmcStatus: 'Registered with H/West Ward',
+              assignedContractor: 'M/s Western Infra Projects (BMC Empanelled)',
+              slaRemainingSeconds: 48 * 3600,
+              slaHoursRemaining: 48,
+              badge: 'Layer 2: Ward Action',
+              badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+              lastUpdated: 'Escalated to Layer 2 (50+ Votes Reached)'
+            };
+          }
+
           return {
             ...issue,
             votes: newVotes,
@@ -65,6 +156,17 @@ export default function App() {
         return issue;
       });
 
+      if (escalatedTitle) {
+        showToast(`🔥 Auto-Escalated to Layer 2! "${escalatedTitle}" reached 50+ community upvotes!`);
+      } else {
+        const target = prevIssues.find(i => i.id === issueId);
+        if (isCurrentlyUpvoted) {
+          showToast(`Vote removed for "${target?.title || 'Issue'}" (-1)`);
+        } else {
+          showToast(`+1 Upvote registered for "${target?.title || 'Issue'}"!`);
+        }
+      }
+
       // Sort Layer 1 issues dynamically by votes (highest first)
       return updated.sort((a, b) => {
         if (a.layer === b.layer) {
@@ -73,15 +175,6 @@ export default function App() {
         return a.layer - b.layer;
       });
     });
-
-    setUpvotedIds(prev => {
-      const next = new Set(prev);
-      next.add(issueId);
-      return next;
-    });
-
-    const target = issues.find(i => i.id === issueId);
-    showToast(`+1 Vote Registered for "${target?.title || 'Issue'}"! Progress bar updated.`);
   };
 
   // 4-Stage Progress Stepper Simulation & Progression Handler
@@ -369,6 +462,7 @@ export default function App() {
         <HeroSection
           totalVotes={totalVotes}
           activeHotspotsCount={activeHotspotsCount}
+          underWardActionCount={underWardActionCount}
           resolvedCount={resolvedCount}
           onJumpToLifecycle={(layer) => {
             if (layer) setActiveLayer(layer);

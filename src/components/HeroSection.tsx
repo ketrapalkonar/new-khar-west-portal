@@ -4,6 +4,7 @@ import { Flame, Send, Award, Users, AlertTriangle, PlusCircle, CheckCircle2, Clo
 interface HeroSectionProps {
   totalVotes: number;
   activeHotspotsCount: number;
+  underWardActionCount?: number;
   resolvedCount: number;
   onJumpToLifecycle: (layer?: 1 | 2 | 3) => void;
   onJumpToGenerator: () => void;
@@ -13,6 +14,7 @@ interface HeroSectionProps {
 export const HeroSection: React.FC<HeroSectionProps> = ({
   totalVotes,
   activeHotspotsCount,
+  underWardActionCount = 0,
   resolvedCount,
   onJumpToLifecycle,
   onJumpToGenerator,
@@ -92,80 +94,105 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
             </button>
           </div>
 
-          {/* Live Stats Row (3 Glass Cards requested) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
-            {/* Card 1: Total Community Upvotes */}
+          {/* Live Stats Row (4 Metric Badges strictly zero-initialized) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 max-w-5xl mx-auto">
+            {/* Card 1: Community Votes */}
             <div 
               onClick={() => onJumpToLifecycle(1)}
-              className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-emerald-500/40 rounded-2xl p-5 text-left transition-all duration-300 shadow-xl cursor-pointer group"
+              className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-emerald-500/40 rounded-2xl p-4 sm:p-5 text-left transition-all duration-300 shadow-xl cursor-pointer group"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase font-bold text-emerald-400 tracking-wider">
+                <span className="text-[11px] uppercase font-bold text-emerald-400 tracking-wider">
                   Citizen Power
                 </span>
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
-                  <Users className="w-4 h-4" />
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                  <Users className="w-3.5 h-3.5" />
                 </div>
               </div>
               <div className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
                 {totalVotes.toLocaleString()}
               </div>
-              <p className="text-xs text-slate-400 mt-1 font-medium">
-                Total Community Upvotes
+              <p className="text-xs text-slate-300 mt-1 font-semibold">
+                Community Votes
               </p>
-              <div className="mt-3 text-[11px] text-emerald-400/90 flex items-center gap-1 font-medium">
+              <div className="mt-2.5 text-[11px] text-emerald-400/90 flex items-center gap-1 font-medium">
                 <Sparkles className="w-3 h-3" />
-                <span>Live H/West Citizen Demands</span>
+                <span>Live Citizen Demands</span>
               </div>
             </div>
 
             {/* Card 2: Active Hotspots */}
             <div 
-              onClick={() => onJumpToLifecycle(2)}
-              className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-amber-500/40 rounded-2xl p-5 text-left transition-all duration-300 shadow-xl cursor-pointer group"
+              onClick={() => onJumpToLifecycle(1)}
+              className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-amber-500/40 rounded-2xl p-4 sm:p-5 text-left transition-all duration-300 shadow-xl cursor-pointer group"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase font-bold text-amber-400 tracking-wider">
-                  Under Tracking
+                <span className="text-[11px] uppercase font-bold text-amber-400 tracking-wider">
+                  Layer 1
                 </span>
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
-                  <Clock className="w-4 h-4" />
+                <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                  <Flame className="w-3.5 h-3.5" />
                 </div>
               </div>
               <div className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
                 {activeHotspotsCount}
               </div>
-              <p className="text-xs text-slate-400 mt-1 font-medium">
+              <p className="text-xs text-slate-300 mt-1 font-semibold">
                 Active Hotspots
               </p>
-              <div className="mt-3 text-[11px] text-amber-400/90 flex items-center gap-1 font-medium">
+              <div className="mt-2.5 text-[11px] text-amber-400/90 flex items-center gap-1 font-medium">
                 <AlertTriangle className="w-3 h-3" />
-                <span>Subway, Madhu Park &amp; Roads</span>
+                <span>Pending Community Votes</span>
               </div>
             </div>
 
-            {/* Card 3: Resolved BMC Spot-Fixes */}
+            {/* Card 3: Under Ward Action */}
             <div 
-              onClick={() => onJumpToLifecycle(3)}
-              className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-emerald-500/40 rounded-2xl p-5 text-left transition-all duration-300 shadow-xl cursor-pointer group"
+              onClick={() => onJumpToLifecycle(2)}
+              className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-cyan-500/40 rounded-2xl p-4 sm:p-5 text-left transition-all duration-300 shadow-xl cursor-pointer group"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs uppercase font-bold text-teal-400 tracking-wider">
-                  Verified Closed
+                <span className="text-[11px] uppercase font-bold text-cyan-400 tracking-wider">
+                  Layer 2
                 </span>
-                <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 group-hover:scale-110 transition-transform">
-                  <ShieldCheck className="w-4 h-4" />
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform">
+                  <Clock className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
+                {underWardActionCount}
+              </div>
+              <p className="text-xs text-slate-300 mt-1 font-semibold">
+                Under Ward Action
+              </p>
+              <div className="mt-2.5 text-[11px] text-cyan-400/90 flex items-center gap-1 font-medium">
+                <Clock className="w-3 h-3" />
+                <span>Active MCGM SLA Timers</span>
+              </div>
+            </div>
+
+            {/* Card 4: Dual-Verified / Resolved Work Done */}
+            <div 
+              onClick={() => onJumpToLifecycle(3)}
+              className="bg-slate-900/70 backdrop-blur-xl border border-slate-800/80 hover:border-teal-500/40 rounded-2xl p-4 sm:p-5 text-left transition-all duration-300 shadow-xl cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] uppercase font-bold text-teal-400 tracking-wider">
+                  Layer 3
+                </span>
+                <div className="w-7 h-7 rounded-lg bg-teal-500/10 border border-teal-500/30 flex items-center justify-center text-teal-400 group-hover:scale-110 transition-transform">
+                  <ShieldCheck className="w-3.5 h-3.5" />
                 </div>
               </div>
               <div className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight">
                 {resolvedCount}
               </div>
-              <p className="text-xs text-slate-400 mt-1 font-medium">
-                Resolved BMC Spot-Fixes
+              <p className="text-xs text-slate-300 mt-1 font-semibold">
+                Dual-Verified Work Done
               </p>
-              <div className="mt-3 text-[11px] text-emerald-400/90 flex items-center gap-1 font-medium">
+              <div className="mt-2.5 text-[11px] text-emerald-400/90 flex items-center gap-1 font-medium">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Dual-Verified on Ground</span>
+                <span>Ground Checked by Citizens</span>
               </div>
             </div>
           </div>
