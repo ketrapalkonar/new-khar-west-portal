@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, MapPin, Flame, FileText, PlusCircle, CheckCircle2, Clock, GraduationCap } from 'lucide-react';
+import { ShieldAlert, MapPin, Flame, FileText, PlusCircle, CheckCircle2, Clock, GraduationCap, Search } from 'lucide-react';
 
 interface NavbarProps {
   totalVotes: number;
@@ -7,6 +7,7 @@ interface NavbarProps {
   onSelectLayer: (layer: 1 | 2 | 3) => void;
   onNavigate: (sectionId: string) => void;
   onOpenReportModal: () => void;
+  onOpenTicketLookup?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -14,7 +15,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeLayer,
   onSelectLayer,
   onNavigate,
-  onOpenReportModal
+  onOpenReportModal,
+  onOpenTicketLookup
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-[#0B0F17]/90 backdrop-blur-xl border-b border-slate-800/80 text-white shadow-xl shadow-black/40">
@@ -136,8 +138,19 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </nav>
 
-        {/* Right CTA Area: + Report Spot-Fix and Total Votes Counter */}
-        <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* Right CTA Area: + Report Spot-Fix, Track Ticket, and Total Votes Counter */}
+        <div className="flex items-center gap-2 sm:gap-2.5">
+          {onOpenTicketLookup && (
+            <button
+              onClick={onOpenTicketLookup}
+              className="hidden md:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 hover:text-emerald-400 text-xs font-bold border border-slate-700 hover:border-emerald-500/30 transition-all cursor-pointer"
+              title="Track MCGM Grievance Ticket"
+            >
+              <Search className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Track Ticket</span>
+            </button>
+          )}
+
           {/* Glowing CTA button: "+ Report Spot-Fix" */}
           <button
             onClick={onOpenReportModal}

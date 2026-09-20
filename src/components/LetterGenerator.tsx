@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Copy, 
   Check, 
@@ -27,7 +27,7 @@ export const LetterGenerator: React.FC<LetterGeneratorProps> = ({
   onSelectIssue
 }) => {
   const [formData, setFormData] = useState<ComplaintFormData>({
-    issueType: selectedIssueId,
+    issueType: selectedIssueId || (issues[0]?.id ?? ''),
     customIssueTitle: '',
     residentName: '',
     roadLocality: KHAR_ROADS[0],
@@ -36,6 +36,16 @@ export const LetterGenerator: React.FC<LetterGeneratorProps> = ({
     societyName: '',
     urgency: 'Immediate Action Required (24-48 Hour SLA)'
   });
+
+  // Keep formData.issueType synced whenever selectedIssueId or issues changes
+  useEffect(() => {
+    if (selectedIssueId) {
+      setFormData(prev => ({ ...prev, issueType: selectedIssueId }));
+    } else if (issues.length > 0) {
+      onSelectIssue(issues[0].id);
+      setFormData(prev => ({ ...prev, issueType: issues[0].id }));
+    }
+  }, [selectedIssueId, issues, onSelectIssue]);
 
   const [generatedLetter, setGeneratedLetter] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);

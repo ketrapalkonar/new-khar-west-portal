@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { INITIAL_ISSUES } from './data/civicData';
-import { CivicIssue, NewIssueFormData, ResidentOpinion } from './types';
+import { INITIAL_ISSUES, WORK_STAGES } from './data/civicData';
+import { CivicIssue, NewIssueFormData, ResidentOpinion, WorkStage } from './types';
 import { Navbar } from './components/Navbar';
 import { HeroSection } from './components/HeroSection';
 import { CivicLifecycleDashboard } from './components/CivicLifecycleDashboard';
@@ -10,6 +10,7 @@ import { ComplaintGuide } from './components/ComplaintGuide';
 import { LetterGenerator } from './components/LetterGenerator';
 import { Footer } from './components/Footer';
 import { ReportIssueModal } from './components/ReportIssueModal';
+import { TicketTrackerModal } from './components/TicketTrackerModal';
 
 export default function App() {
   const [issues, setIssues] = useState<CivicIssue[]>(() => {
@@ -18,12 +19,16 @@ export default function App() {
 
   const [activeLayer, setActiveLayer] = useState<1 | 2 | 3>(1);
   const [upvotedIds, setUpvotedIds] = useState<Set<string>>(() => new Set());
-  const [selectedIssueId, setSelectedIssueId] = useState<string>('khar-subway');
+  const [selectedIssueId, setSelectedIssueId] = useState<string>(() => {
+    return INITIAL_ISSUES[0]?.id || '';
+  });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Modals & Drawers state
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [opinionIssue, setOpinionIssue] = useState<CivicIssue | null>(null);
+  const [isTicketTrackerOpen, setIsTicketTrackerOpen] = useState<boolean>(false);
+  const [ticketTrackerQuery, setTicketTrackerQuery] = useState<string>('');
 
   // Live stats computation
   const totalVotes = useMemo(() => {
@@ -79,32 +84,57 @@ export default function App() {
     showToast(`+1 Vote Registered for "${target?.title || 'Issue'}"! Progress bar updated.`);
   };
 
-  // Dual Verification: Citizen Ground Check Track
+  // 4-Stage Progress Stepper Simulation & Progression Handler
+  const handleUpdateStage = (issueId: string, stage: WorkStage) => {
+    setIssues(prevIssues => prevIssues.map(issue => {
+      if (issue.id === issueId) {
+        const stageInfo = WORK_STAGES.find(s => s.stage === stage);
+        let newLayer = issue.layer;
+        let newBmcStatus = stageInfo?.label || issue.bmcStatus;
+        let resolvedAt = issue.resolvedAt;
+
+        // Stage 4 triggers 100% completion and moves the ticket to Layer 3 Hall of Fame
+        if (stage === 4) {
+          newLayer = 3;
+          newBmcStatus = 'Dual-Verified & Closed';
+          resolvedAt = 'Just now (100% Citizen Verified)';
+          showToast(`🎉 Fix Completed & Verified! "${issue.title}" transitioned to Layer 3: Hall of Fame!`);
+        } else {
+          showToast(`Advanced "${issue.title}" to Stage ${stage}: ${stageInfo?.label} (${stageInfo?.percent}%)`);
+        }
+
+        return {
+          ...issue,
+          workStage: stage,
+          layer: newLayer,
+          bmcStatus: newBmcStatus,
+          resolvedAt,
+          lastUpdated: `Stage ${stage} updated just now`
+        };
+      }
+      return issue;
+    }));
+  };
+
+  // Dual Verification: Citizen Ground Check Track (automatically completes to 100% and Layer 3)
   const handleConfirmGroundFix = (issueId: string, isFixed: boolean) => {
     setIssues(prevIssues => {
       return prevIssues.map(issue => {
         if (issue.id === issueId) {
           if (isFixed) {
-            const nextConfirmations = issue.citizenConfirmations + 1;
-            // When confirmations reach 10+ or user explicitly confirms, promote to Layer 3!
-            if (nextConfirmations >= 10 || issue.citizenConfirmations >= 8) {
-              showToast(`🎉 Dual-Verification Complete! "${issue.title}" transitioned to Layer 3: Hall of Fame!`);
-              return {
-                ...issue,
-                citizenConfirmations: nextConfirmations,
-                layer: 3,
-                bmcStatus: 'Dual-Verified & Closed',
-                resolvedAt: 'Just now by Citizen Ground Check',
-                lastUpdated: 'Closed Just Now'
-              };
-            }
-            showToast(`Ground fix confirmed! (${nextConfirmations} citizens verified)`);
+            const nextConfirmations = (issue.citizenConfirmations || 0) + 1;
+            showToast(`🎉 Dual-Verification Complete! "${issue.title}" verified 100% and moved to Layer 3: Hall of Fame!`);
             return {
               ...issue,
-              citizenConfirmations: nextConfirmations
+              citizenConfirmations: nextConfirmations,
+              workStage: 4 as WorkStage,
+              layer: 3,
+              bmcStatus: 'Dual-Verified & Closed',
+              resolvedAt: 'Just now by Citizen Ground Check',
+              lastUpdated: 'Closed Just Now'
             };
           } else {
-            const nextDisputes = issue.citizenDisputes + 1;
+            const nextDisputes = (issue.citizenDisputes || 0) + 1;
             showToast(`Citizen dispute logged! Ticket flagged for BMC re-inspection.`);
             return {
               ...issue,
@@ -138,7 +168,8 @@ export default function App() {
         return {
           ...issue,
           layer: 2,
-          bmcStatus: 'Contractor Deployed on Site',
+          workStage: 1 as WorkStage, // starts at Stage 1 (25% Registered with H/West Ward)
+          bmcStatus: 'Registered with H/West Ward',
           assignedContractor: 'M/s Western Infra Projects (BMC Empanelled)',
           slaRemainingSeconds: 50400,
           lastUpdated: 'Promoted to Ward Action Desk'
@@ -147,9 +178,17 @@ export default function App() {
       return issue;
     }));
     setActiveLayer(2);
-    showToast('Hotspot escalated to Layer 2: Under Ward Action with active SLA clock!');
+    showToast('Hotspot escalated to Layer 2: Under Ward Action with active SLA clock & Stage 1 Tracker!');
     const el = document.getElementById('lifecycle-section');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // Open Ticket Tracker modal with optional query
+  const handleOpenTicketTracker = (query?: string) => {
+    if (query !== undefined) {
+      setTicketTrackerQuery(query);
+    }
+    setIsTicketTrackerOpen(true);
   };
 
   // Create new issue via Report Spot-Fix Modal
@@ -322,6 +361,7 @@ export default function App() {
         }}
         onNavigate={scrollToSection}
         onOpenReportModal={() => setIsReportModalOpen(true)}
+        onOpenTicketLookup={() => handleOpenTicketTracker()}
       />
 
       <main>
@@ -351,6 +391,8 @@ export default function App() {
           onUploadAfterPhoto={handleUploadAfterPhoto}
           onPromoteToWardAction={handlePromoteToWardAction}
           onOpenReportModal={() => setIsReportModalOpen(true)}
+          onUpdateStage={handleUpdateStage}
+          onOpenTicketLookup={handleOpenTicketTracker}
         />
 
         {/* Section 6: Official Ward Directory ("Whom to Approach") */}
@@ -377,6 +419,25 @@ export default function App() {
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
         onSubmit={handleCreateNewIssue}
+      />
+
+      {/* Dynamic Ticket ID Search & Progress Tracker Modal */}
+      <TicketTrackerModal
+        isOpen={isTicketTrackerOpen}
+        onClose={() => setIsTicketTrackerOpen(false)}
+        issues={issues}
+        initialTicketQuery={ticketTrackerQuery}
+        onSelectLayer={(layer) => {
+          setActiveLayer(layer);
+          scrollToSection('lifecycle-section');
+        }}
+        onUpdateStage={handleUpdateStage}
+        onConfirmGroundFix={handleConfirmGroundFix}
+        onOpenReportModal={() => {
+          setIsTicketTrackerOpen(false);
+          setIsReportModalOpen(true);
+        }}
+        onUploadAfterPhoto={handleUploadAfterPhoto}
       />
 
       {/* Resident Opinion Side Drawer */}
