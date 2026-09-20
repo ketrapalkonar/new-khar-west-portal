@@ -1,0 +1,6 @@
+{
+  "name": "Khar West Civic Resolution Portal",
+  "description": "Aamchi Khar West - Civic Spot-Fix & Escalation Portal for BMC H/West Ward (400052) featuring a 3-Layer Civic Lifecycle, Dual Verification Engine, and Automated Complaint Generator. Lead: Ketrapal Konar.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
