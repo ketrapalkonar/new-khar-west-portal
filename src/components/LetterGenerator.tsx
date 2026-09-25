@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   Copy, 
   Check, 
-  Send, 
   FileText, 
   Sparkles, 
   AlertCircle, 
-  Building2, 
   Mail, 
   Download, 
   ExternalLink,
@@ -37,6 +35,8 @@ export const LetterGenerator: React.FC<LetterGeneratorProps> = ({
     urgency: 'Immediate Action Required (24-48 Hour SLA)'
   });
 
+  const [customIssueText, setCustomIssueText] = useState('');
+
   // Keep formData.issueType synced whenever selectedIssueId or issues changes
   useEffect(() => {
     if (selectedIssueId) {
@@ -52,6 +52,7 @@ export const LetterGenerator: React.FC<LetterGeneratorProps> = ({
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
   const currentSelectedIssue = issues.find(i => i.id === selectedIssueId);
+  const isOtherSelected = selectedIssueId === 'OTHER_CUSTOM_ISSUE';
 
   const validateForm = () => {
     const errs: { [key: string]: string } = {};
@@ -61,6 +62,9 @@ export const LetterGenerator: React.FC<LetterGeneratorProps> = ({
     if (!formData.roadLocality.trim()) {
       errs.roadLocality = 'Khar West Road/Locality is required';
     }
+    if (isOtherSelected && !customIssueText.trim()) {
+      errs.customIssueText = 'Please describe your custom civic issue';
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -69,7 +73,18 @@ export const LetterGenerator: React.FC<LetterGeneratorProps> = ({
     e.preventDefault();
     if (!validateForm()) return;
 
-    const issue = currentSelectedIssue || issues[0];
+    const issueTitle = isOtherSelected 
+      ? customIssueText.trim() 
+      : (currentSelectedIssue?.title || 'CIVIC GRIEVANCE');
+
+    const issueDept = currentSelectedIssue?.department || 'H/West Ward Engineering Desk';
+    const ticketRef = currentSelectedIssue?.mcgmTicketId || 'PENDING-REGISTRATION';
+    const votesCount = currentSelectedIssue?.votes || 1;
+    const issueDesc = isOtherSelected 
+      ? `Custom Resident Reported Issue: ${customIssueText}` 
+      : (currentSelectedIssue?.description || 'Needs immediate municipal attention.');
+    const slangQuote = currentSelectedIssue?.mumbaiSlangQuote || 'Boss, BMC ko bolo turant inspection kare, public pareshan hai!';
+
     const dateStr = new Date().toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'long',
@@ -86,34 +101,34 @@ Ward Contact: 022-26422311 / 022-26422315
 
 DATE: ${dateStr}
 
-SUBJECT: URGENT CIVIC SPOT-FIX ESCALATION: ${issue.title.toUpperCase()} (WARD H/WEST - 400052)
-REFERENCE: MCGM Grievance Tracking Ticket: ${issue.mcgmTicketId}
+SUBJECT: URGENT CIVIC SPOT-FIX ESCALATION: ${issueTitle.toUpperCase()} (WARD H/WEST - 400052)
+REFERENCE: MCGM Grievance Tracking Ticket: ${ticketRef}
 
 Respected Assistant Municipal Commissioner Sir / Madam,
 
 I am writing to your office in my capacity as a resident of Khar West (BMC H/West Ward) to formally escalate a critical, recurring civic grievance that poses an acute risk to public health, commuter safety, and local neighborhood sanitation.
 
 1. LOCATION & JURISDICTION DETAILS:
-   - Primary Location: ${issue.location}
+   - Primary Location: ${formData.roadLocality}
    - Specific Cross-Road / Lane: ${formData.roadLocality}
    ${formData.landmark ? `- Landmark / Near: ${formData.landmark}` : ''}
    ${formData.societyName ? `- Housing Society / Building: ${formData.societyName}` : ''}
    - Pincode: 400052 (Khar West)
-   - Concerned BMC Department: ${issue.department}
+   - Concerned BMC Department: ${issueDept}
 
 2. NATURE OF CIVIC HAZARD & GROUND REALITY:
-   ${issue.description}
+   ${issueDesc}
 
    Citizen Community Observation:
-   "${issue.mumbaiSlangQuote}"
+   "${slangQuote}"
 
 3. COMMUNITY ENDORSEMENT & CITIZEN CHARTER SLA:
-   This spot-fix has officially garnered ${issue.votes} verified community upvotes on the Aamchi Khar West Civic Resolution Portal. Under the MCGM Citizens' Charter, urgent hazards of this classification mandate site inspection and contractor mobilization within 24 to 48 hours.
+   This spot-fix has officially garnered ${votesCount} verified community upvotes on the Aamchi Khar West Civic Resolution Portal. Under the MCGM Citizens' Charter, urgent hazards of this classification mandate site inspection and contractor mobilization within 24 to 48 hours.
 
 4. SPECIFIC TIME-BOUND RELIEF REQUESTED:
-   a) Depute the Junior Engineer / Executive Engineer (${issue.department}) for an immediate on-site joint inspection.
+   a) Depute the Junior Engineer / Executive Engineer (${issueDept}) for an immediate on-site joint inspection.
    b) Deploy necessary municipal machinery (suction pumps / mastic asphalt crew / SWM compactor / M&E line squad).
-   c) Update ticket ${issue.mcgmTicketId} with an official Work Order status and estimated completion timestamp.
+   c) Update ticket ${ticketRef} with an official Work Order status and estimated completion timestamp.
 
 Kindly acknowledge receipt of this official resident communication and notify us of the designated field overseer assigned to this site.
 
@@ -124,6 +139,7 @@ ${formData.residentName}
 Resident, Khar West (BMC H/West Ward - 400052)
 ${formData.societyName ? `${formData.societyName}, ` : ''}${formData.roadLocality}
 ${formData.contactNumber ? `Contact Phone: ${formData.contactNumber}` : ''}
+
 CC:
 1. Executive Engineer (Roads & Maintenance / SWD), H/West Ward
 2. Solid Waste Management (SWM) Overseer, H/West Ward
@@ -152,7 +168,8 @@ CC:
 
   const handleOpenMailClient = () => {
     if (!generatedLetter) return;
-    const subject = encodeURIComponent(`URGENT: ${currentSelectedIssue?.title || 'Civic Grievance'} [${currentSelectedIssue?.mcgmTicketId || 'H/West'}]`);
+    const activeTitle = isOtherSelected ? customIssueText : (currentSelectedIssue?.title || 'Civic Grievance');
+    const subject = encodeURIComponent(`URGENT: ${activeTitle} [${currentSelectedIssue?.mcgmTicketId || 'H/West'}]`);
     const body = encodeURIComponent(generatedLetter);
     window.location.href = `mailto:assistantcommissioner.hwest@mcgm.gov.in?subject=${subject}&body=${body}`;
   };
@@ -178,7 +195,7 @@ CC:
         {/* Two-Column SaaS Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           
-          {/* Left Column: Form Controls (5 cols) */}
+          {/* Left Column: Form Controls */}
           <div className="lg:col-span-5 rounded-2xl bg-slate-900/70 backdrop-blur-xl border border-slate-800/90 p-6 shadow-xl">
             <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
               <h3 className="text-base font-black text-white flex items-center gap-2">
@@ -191,7 +208,7 @@ CC:
             </div>
 
             <form onSubmit={handleGenerate} className="space-y-4 text-xs">
-              {/* Select Issue Dropdown requested */}
+              {/* Select Target Issue Dropdown */}
               <div>
                 <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px] mb-1.5">
                   Select Target Issue <span className="text-rose-400">*</span>
@@ -202,22 +219,63 @@ CC:
                     onChange={(e) => {
                       onSelectIssue(e.target.value);
                       setFormData(prev => ({ ...prev, issueType: e.target.value }));
+                      setGeneratedLetter(null);
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none font-medium"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none font-medium cursor-pointer"
                   >
+                    <option value="" disabled>-- Select Reported Issue --</option>
+                    
+                    {/* Dynamic Active Issues */}
                     {issues.map(issue => (
                       <option key={issue.id} value={issue.id} className="bg-slate-900 text-white">
                         [{issue.mcgmTicketId}] {issue.title} ({issue.votes} Votes)
                       </option>
                     ))}
+
+                    {/* Preset Khar West Hotspots */}
+                    <optgroup label="Preset Khar West Hotspots" className="bg-slate-900 text-slate-400">
+                      <option value="preset-subway" className="bg-slate-900 text-white">Khar Subway Waterlogging</option>
+                      <option value="preset-madhu-park" className="bg-slate-900 text-white">Garbage Dumping near Madhu Park</option>
+                      <option value="preset-potholes" className="bg-slate-900 text-white">14th Road Potholes</option>
+                      <option value="preset-linking-road" className="bg-slate-900 text-white">Linking Road Footpath Encroachment</option>
+                    </optgroup>
+
+                    {/* Custom Issue Option */}
+                    <option value="OTHER_CUSTOM_ISSUE" className="bg-slate-900 text-emerald-400 font-bold">
+                      Other (Write Custom Issue)
+                    </option>
                   </select>
                   <div className="absolute right-3.5 top-3 pointer-events-none text-slate-400">
                     ▼
                   </div>
                 </div>
+
+                {/* Conditional Custom Issue Text Field */}
+                {isOtherSelected && (
+                  <div className="mt-3 animate-fadeIn">
+                    <label className="block text-emerald-400 font-bold text-[11px] mb-1">
+                      Describe Custom Issue *
+                    </label>
+                    <input
+                      type="text"
+                      value={customIssueText}
+                      onChange={(e) => setCustomIssueText(e.target.value)}
+                      placeholder="e.g. Open Manhole near Khar Station West"
+                      className={`w-full px-3.5 py-2 rounded-xl bg-slate-800 border ${
+                        errors.customIssueText ? 'border-rose-500' : 'border-emerald-500/50'
+                      } text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-400`}
+                    />
+                    {errors.customIssueText && (
+                      <p className="text-rose-400 text-[11px] mt-1 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.customIssueText}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Resident Name (Required) requested */}
+              {/* Resident Full Name */}
               <div>
                 <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px] mb-1.5">
                   Resident Full Name <span className="text-rose-400">*</span>
@@ -239,7 +297,7 @@ CC:
                 )}
               </div>
 
-              {/* Khar Road/Locality (Required) requested */}
+              {/* Khar West Road / Locality */}
               <div>
                 <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px] mb-1.5">
                   Khar West Road / Locality <span className="text-rose-400">*</span>
@@ -248,7 +306,7 @@ CC:
                   <select
                     value={formData.roadLocality}
                     onChange={(e) => setFormData({ ...formData, roadLocality: e.target.value })}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none font-medium"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 appearance-none font-medium cursor-pointer"
                   >
                     {KHAR_ROADS.map(road => (
                       <option key={road} value={road} className="bg-slate-900 text-white">
@@ -262,7 +320,7 @@ CC:
                 </div>
               </div>
 
-              {/* Landmark requested */}
+              {/* Landmark & Building */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px] mb-1.5">
@@ -291,7 +349,7 @@ CC:
                 </div>
               </div>
 
-              {/* Urgency Level requested */}
+              {/* Urgency Level */}
               <div>
                 <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px] mb-1.5">
                   Urgency Level &amp; SLA
@@ -299,7 +357,7 @@ CC:
                 <select
                   value={formData.urgency}
                   onChange={(e) => setFormData({ ...formData, urgency: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:border-emerald-500 focus:outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs focus:border-emerald-500 focus:outline-none cursor-pointer"
                 >
                   <option value="Immediate Action Required (24-48 Hour SLA)">
                     Critical Emergency: 24-48 Hour SLA (Subway Flooding / Open Drain)
@@ -313,7 +371,7 @@ CC:
                 </select>
               </div>
 
-              {/* Resident Phone (Optional) */}
+              {/* Resident Phone */}
               <div>
                 <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px] mb-1.5">
                   Contact Phone (Optional)
@@ -327,7 +385,7 @@ CC:
                 />
               </div>
 
-              {/* "Generate Official Letter" CTA button */}
+              {/* Submit Button */}
               <button
                 type="submit"
                 className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 mt-4"
@@ -338,10 +396,10 @@ CC:
             </form>
           </div>
 
-          {/* Right Column: Output Preview Box (7 cols) - BLANK PLACEHOLDER INITIALLY */}
+          {/* Right Column: Output Preview Box */}
           <div className="lg:col-span-7 flex flex-col h-full">
             {!generatedLetter ? (
-              /* Initial State: Displays an elegant empty-state card requested */
+              /* Initial Placeholder State */
               <div className="rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 p-8 sm:p-12 text-center flex flex-col items-center justify-center min-h-[440px]">
                 <div className="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center text-slate-500 mb-4 shadow-inner">
                   <FileText className="w-8 h-8 text-slate-400" />
@@ -358,10 +416,8 @@ CC:
                 </div>
               </div>
             ) : (
-              /* Triggered State: Complete formal email with glowing Copy button */
+              /* Triggered Letter State */
               <div className="rounded-2xl bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-6 shadow-2xl flex flex-col justify-between animate-fadeIn">
-                
-                {/* Draft Actions Header */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pb-4 mb-4 border-b border-slate-800">
                   <div>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-xs font-bold">
@@ -369,12 +425,11 @@ CC:
                       Formal Grievance Draft Ready
                     </span>
                     <span className="text-[11px] text-slate-400 ml-2 font-mono">
-                      Ref: {currentSelectedIssue?.mcgmTicketId}
+                      Ref: {currentSelectedIssue?.mcgmTicketId || 'CUSTOM-GRIEVANCE'}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* Copy Complaint Email Button with glowing feedback requested */}
                     <button
                       onClick={handleCopy}
                       className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -399,7 +454,7 @@ CC:
                     <button
                       onClick={handleOpenMailClient}
                       className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                      title="Open in your default email app"
+                      title="Open in default mail client"
                     >
                       <ExternalLink className="w-3.5 h-3.5 text-blue-400" />
                       <span className="hidden sm:inline">Open Mail</span>
@@ -415,12 +470,10 @@ CC:
                   </div>
                 </div>
 
-                {/* Preformatted Letter Output Box */}
                 <div className="p-4 rounded-xl bg-slate-950 border border-slate-800/90 font-mono text-[11px] leading-relaxed text-slate-300 max-h-[460px] overflow-y-auto whitespace-pre-wrap select-all">
                   {generatedLetter}
                 </div>
 
-                {/* Bottom guidance */}
                 <div className="mt-4 p-3 rounded-xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 flex-wrap gap-2">
                   <span>
                     Recipient: <strong className="text-slate-200">assistantcommissioner.hwest@mcgm.gov.in</strong>
