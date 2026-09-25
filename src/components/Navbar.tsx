@@ -1,9 +1,11 @@
 import React from 'react';
-import { ShieldAlert, MapPin, Flame, FileText, PlusCircle, CheckCircle2, Clock, GraduationCap, Search } from 'lucide-react';
+import { ShieldAlert, MapPin, Flame, FileText, PlusCircle, CheckCircle2, Clock, GraduationCap, Search, ShieldCheck } from 'lucide-react';
 
 interface NavbarProps {
   totalVotes: number;
   activeLayer: 1 | 2 | 3;
+  isAdminMode?: boolean;
+  onToggleAdminMode?: () => void;
   onSelectLayer: (layer: 1 | 2 | 3) => void;
   onNavigate: (sectionId: string) => void;
   onOpenReportModal: () => void;
@@ -13,6 +15,8 @@ interface NavbarProps {
 export const Navbar: React.FC<NavbarProps> = ({
   totalVotes,
   activeLayer,
+  isAdminMode = false,
+  onToggleAdminMode,
   onSelectLayer,
   onNavigate,
   onOpenReportModal,
@@ -31,7 +35,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
-        {/* Student Lead Attribution Badge requested */}
+        {/* Student Lead Attribution Badge */}
         <div className="flex items-center gap-1.5 text-xs">
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-800/90 text-emerald-300 border border-emerald-500/30 font-semibold text-[11px] shadow-sm">
             <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
@@ -138,8 +142,33 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
         </nav>
 
-        {/* Right CTA Area: + Report Spot-Fix, Track Ticket, and Total Votes Counter */}
+        {/* Right CTA Area: Admin Login, + Report Spot-Fix, Track Ticket, and Total Votes Counter */}
         <div className="flex items-center gap-2 sm:gap-2.5">
+          {/* Ward Admin Mode Toggle Button */}
+          {onToggleAdminMode && (
+            <button
+              onClick={onToggleAdminMode}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                isAdminMode
+                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/40 shadow-lg shadow-rose-500/20 animate-pulse'
+                  : 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-300 hover:text-white border border-slate-700'
+              }`}
+              title={isAdminMode ? 'Click to exit Admin Mode' : 'Click to log in as Ward Admin'}
+            >
+              {isAdminMode ? (
+                <>
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                  <span className="hidden sm:inline">🛡️ Admin Active</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="hidden sm:inline">🔒 Admin Login</span>
+                </>
+              )}
+            </button>
+          )}
+
           {onOpenTicketLookup && (
             <button
               onClick={onOpenTicketLookup}
