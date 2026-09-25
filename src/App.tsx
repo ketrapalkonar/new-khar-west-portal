@@ -301,3 +301,4 @@ export const LetterGenerator: React.FC<LetterGeneratorProps> = ({
     </section>
   );
 };
+export default App;
