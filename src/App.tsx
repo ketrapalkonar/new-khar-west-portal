@@ -1,547 +1,303 @@
-import React, { useState, useMemo } from 'react';
-import { INITIAL_ISSUES, WORK_STAGES } from './data/civicData';
-import { CivicIssue, NewIssueFormData, ResidentOpinion, WorkStage } from './types';
-import { Navbar } from './components/Navbar';
-import { HeroSection } from './components/HeroSection';
-import { CivicLifecycleDashboard } from './components/CivicLifecycleDashboard';
-import { ResidentOpinionDrawer } from './components/ResidentOpinionDrawer';
-import { WardDirectory } from './components/WardDirectory';
-import { ComplaintGuide } from './components/ComplaintGuide';
-import { LetterGenerator } from './components/LetterGenerator';
-import { Footer } from './components/Footer';
-import { ReportIssueModal } from './components/ReportIssueModal';
-import { TicketTrackerModal } from './components/TicketTrackerModal';
+import React, { useState } from 'react';
+import { CivicIssue } from '../types';
 
-const STORAGE_KEY_ISSUES = 'aamchi_khar_west_civic_issues_v3';
-const STORAGE_KEY_VOTES = 'aamchi_khar_west_user_upvoted_ids_v3';
+interface LetterGeneratorProps {
+  issues: CivicIssue[];
+  selectedIssueId: string;
+  onSelectIssue: (id: string) => void;
+}
 
-export default function App() {
-  const [issues, setIssues] = useState<CivicIssue[]>(() => {
-    try {
-      localStorage.removeItem('aamchi_khar_west_civic_issues');
-      localStorage.removeItem('aamchi_khar_west_civic_issues_v2');
-      const saved = localStorage.getItem(STORAGE_KEY_ISSUES);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      }
-    } catch {
-      // fallback to empty state
-    }
-    return [...INITIAL_ISSUES];
-  });
+export const LetterGenerator: React.FC<LetterGeneratorProps> = ({
+  issues,
+  selectedIssueId,
+  onSelectIssue,
+}) => {
+  // Form fields state
+  const [customIssueText, setCustomIssueText] = useState('');
+  const [residentName, setResidentName] = useState('');
+  const [residentRoad, setResidentRoad] = useState('1st Road, Khar West');
+  const [landmark, setLandmark] = useState('');
+  const [building, setBuilding] = useState('');
+  const [urgency, setUrgency] = useState('Critical Emergency: 24-48 Hour SLA');
+  const [contactPhone, setContactPhone] = useState('');
 
-  const [activeLayer, setActiveLayer] = useState<1 | 2 | 3>(1);
-  const [upvotedIds, setUpvotedIds] = useState<Set<string>>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_VOTES);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return new Set(parsed);
-        }
-      }
-    } catch {
-      // fallback
-    }
-    return new Set<string>();
-  });
+  // Generation & Copy Feedback states
+  const [isGenerated, setIsGenerated] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
-  const [selectedIssueId, setSelectedIssueId] = useState<string>(() => {
-    return INITIAL_ISSUES[0]?.id || '';
-  });
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // Active issue resolution
+  const isOtherSelected = selectedIssueId === 'OTHER_CUSTOM_ISSUE';
+  const activeIssue = issues.find((i) => i.id === selectedIssueId);
 
-  // Persist issues to localStorage
-  React.useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_ISSUES, JSON.stringify(issues));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [issues]);
+  // Determine active title & locality for the draft
+  const targetTitle = isOtherSelected
+    ? customIssueText.trim() || 'Custom Civic Grievance'
+    : activeIssue?.title || 'Civic Infrastructure Spot-Fix';
 
-  // Persist upvoted IDs to localStorage
-  React.useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_VOTES, JSON.stringify(Array.from(upvotedIds)));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [upvotedIds]);
+  const targetLocation = isOtherSelected
+    ? residentRoad
+    : activeIssue?.location || residentRoad;
 
-  // Modals & Drawers state
-  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
-  const [opinionIssue, setOpinionIssue] = useState<CivicIssue | null>(null);
-  const [isTicketTrackerOpen, setIsTicketTrackerOpen] = useState<boolean>(false);
-  const [ticketTrackerQuery, setTicketTrackerQuery] = useState<string>('');
+  const targetDept = activeIssue?.department || 'H/West Ward Administrative Desk';
+  const targetTicket = activeIssue?.mcgmTicketId || 'PENDING-REGISTRATION';
 
-  // Live stats computation strictly starting from 0
-  const totalVotes = useMemo(() => {
-    return issues.reduce((acc, issue) => acc + issue.votes, 0);
-  }, [issues]);
-
-  const activeHotspotsCount = useMemo(() => {
-    return issues.filter(i => i.layer === 1).length;
-  }, [issues]);
-
-  const underWardActionCount = useMemo(() => {
-    return issues.filter(i => i.layer === 2).length;
-  }, [issues]);
-
-  const resolvedCount = useMemo(() => {
-    return issues.filter(i => i.layer === 3).length;
-  }, [issues]);
-
-  const showToast = (message: string) => {
-    setToastMessage(message);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3500);
+  const handleGenerate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsGenerated(true);
   };
 
-  // Upvoting / Downvoting (1-vote-per-user toggle) handler with dynamic re-sorting and Layer 2 auto-escalation
-  const handleUpvote = (issueId: string) => {
-    const isCurrentlyUpvoted = upvotedIds.has(issueId);
+  const handleCopyLetter = () => {
+    const letterText = `To,\nThe Assistant Municipal Commissioner,\nBMC H/West Ward Office,\n2nd Hasnabad Lane, Khar West, Mumbai - 400052.\n\nSubject: URGENT ESCALATION: ${targetTitle} at ${targetLocation}\n\nDear Sir/Madam,\n\nI am writing as a resident of ${residentRoad} (${landmark ? `Near ${landmark}` : ''} ${building ? `, ${building}` : ''}) to formally escalate an unresolved civic issue under MCGM Citizen Charter SLAs.\n\nDETAILS OF CIVIC GRIEVANCE:\n- Issue Title: ${targetTitle}\n- Locality / Road: ${targetLocation}\n- Responsible Department: ${targetDept}\n- Tracking Ticket Ref: ${targetTicket}\n- Urgency Level: ${urgency}\n- Resident Contact: ${residentName} (${contactPhone || 'Phone on file'})\n\nThis issue significantly affects daily commuter safety and residential hygiene in Khar West. We request immediate site inspection and contractor mobilization from H/West Ward.\n\nYours faithfully,\n${residentName || 'Concerned Khar West Resident'}`;
 
-    // Toggle user vote set
-    setUpvotedIds(prev => {
-      const next = new Set(prev);
-      if (isCurrentlyUpvoted) {
-        next.delete(issueId);
-      } else {
-        next.add(issueId);
-      }
-      return next;
-    });
-
-    setIssues(prevIssues => {
-      let escalatedTitle: string | null = null;
-
-      const updated = prevIssues.map(issue => {
-        if (issue.id === issueId) {
-          const delta = isCurrentlyUpvoted ? -1 : 1;
-          const newVotes = Math.max(0, issue.votes + delta);
-
-          // Auto-escalate from Layer 1 to Layer 2 when reaching 50+ votes
-          if (issue.layer === 1 && newVotes >= 50) {
-            escalatedTitle = issue.title;
-            const randomTicketNumber = Math.floor(10000 + Math.random() * 90000);
-            const ticketId = issue.mcgmTicketId || `HW/2026/${randomTicketNumber}`;
-
-            return {
-              ...issue,
-              votes: newVotes,
-              layer: 2 as const,
-              mcgmTicketId: ticketId,
-              workStage: 1 as WorkStage,
-              bmcStatus: 'Registered with H/West Ward',
-              assignedContractor: 'M/s Western Infra Projects (BMC Empanelled)',
-              slaRemainingSeconds: 48 * 3600,
-              slaHoursRemaining: 48,
-              badge: 'Layer 2: Ward Action',
-              badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
-              lastUpdated: 'Escalated to Layer 2 (50+ Votes Reached)'
-            };
-          }
-
-          return {
-            ...issue,
-            votes: newVotes,
-            lastUpdated: 'Just now'
-          };
-        }
-        return issue;
-      });
-
-      if (escalatedTitle) {
-        showToast(`🔥 Auto-Escalated to Layer 2! "${escalatedTitle}" reached 50+ community upvotes!`);
-      } else {
-        const target = prevIssues.find(i => i.id === issueId);
-        if (isCurrentlyUpvoted) {
-          showToast(`Vote removed for "${target?.title || 'Issue'}" (-1)`);
-        } else {
-          showToast(`+1 Upvote registered for "${target?.title || 'Issue'}"!`);
-        }
-      }
-
-      // Sort Layer 1 issues dynamically by votes (highest first)
-      return updated.sort((a, b) => {
-        if (a.layer === b.layer) {
-          return b.votes - a.votes;
-        }
-        return a.layer - b.layer;
-      });
-    });
-  };
-
-  // 4-Stage Progress Stepper Simulation & Progression Handler
-  const handleUpdateStage = (issueId: string, stage: WorkStage) => {
-    setIssues(prevIssues => prevIssues.map(issue => {
-      if (issue.id === issueId) {
-        const stageInfo = WORK_STAGES.find(s => s.stage === stage);
-        let newLayer = issue.layer;
-        let newBmcStatus = stageInfo?.label || issue.bmcStatus;
-        let resolvedAt = issue.resolvedAt;
-
-        // Stage 4 triggers 100% completion and moves the ticket to Layer 3 Hall of Fame
-        if (stage === 4) {
-          newLayer = 3;
-          newBmcStatus = 'Dual-Verified & Closed';
-          resolvedAt = 'Just now (100% Citizen Verified)';
-          showToast(`🎉 Fix Completed & Verified! "${issue.title}" transitioned to Layer 3: Hall of Fame!`);
-        } else {
-          showToast(`Advanced "${issue.title}" to Stage ${stage}: ${stageInfo?.label} (${stageInfo?.percent}%)`);
-        }
-
-        return {
-          ...issue,
-          workStage: stage,
-          layer: newLayer,
-          bmcStatus: newBmcStatus,
-          resolvedAt,
-          lastUpdated: `Stage ${stage} updated just now`
-        };
-      }
-      return issue;
-    }));
-  };
-
-  // Dual Verification: Citizen Ground Check Track (automatically completes to 100% and Layer 3)
-  const handleConfirmGroundFix = (issueId: string, isFixed: boolean) => {
-    setIssues(prevIssues => {
-      return prevIssues.map(issue => {
-        if (issue.id === issueId) {
-          if (isFixed) {
-            const nextConfirmations = (issue.citizenConfirmations || 0) + 1;
-            showToast(`🎉 Dual-Verification Complete! "${issue.title}" verified 100% and moved to Layer 3: Hall of Fame!`);
-            return {
-              ...issue,
-              citizenConfirmations: nextConfirmations,
-              workStage: 4 as WorkStage,
-              layer: 3,
-              bmcStatus: 'Dual-Verified & Closed',
-              resolvedAt: 'Just now by Citizen Ground Check',
-              lastUpdated: 'Closed Just Now'
-            };
-          } else {
-            const nextDisputes = (issue.citizenDisputes || 0) + 1;
-            showToast(`Citizen dispute logged! Ticket flagged for BMC re-inspection.`);
-            return {
-              ...issue,
-              citizenDisputes: nextDisputes
-            };
-          }
-        }
-        return issue;
-      });
-    });
-  };
-
-  // Upload after-photo ground proof
-  const handleUploadAfterPhoto = (issueId: string, photoUrl: string) => {
-    setIssues(prev => prev.map(issue => {
-      if (issue.id === issueId) {
-        return {
-          ...issue,
-          afterPhotoUrl: photoUrl
-        };
-      }
-      return issue;
-    }));
-    showToast('Citizen After Photo proof attached to MCGM Ticket!');
-  };
-
-  // Promote Layer 1 Hotspot to Layer 2 Ward Action
-  const handlePromoteToWardAction = (issueId: string) => {
-    setIssues(prev => prev.map(issue => {
-      if (issue.id === issueId) {
-        return {
-          ...issue,
-          layer: 2,
-          workStage: 1 as WorkStage, // starts at Stage 1 (25% Registered with H/West Ward)
-          bmcStatus: 'Registered with H/West Ward',
-          assignedContractor: 'M/s Western Infra Projects (BMC Empanelled)',
-          slaRemainingSeconds: 50400,
-          lastUpdated: 'Promoted to Ward Action Desk'
-        };
-      }
-      return issue;
-    }));
-    setActiveLayer(2);
-    showToast('Hotspot escalated to Layer 2: Under Ward Action with active SLA clock & Stage 1 Tracker!');
-    const el = document.getElementById('lifecycle-section');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  // Open Ticket Tracker modal with optional query
-  const handleOpenTicketTracker = (query?: string) => {
-    if (query !== undefined) {
-      setTicketTrackerQuery(query);
-    }
-    setIsTicketTrackerOpen(true);
-  };
-
-  // Create new issue via Report Spot-Fix Modal
-  const handleCreateNewIssue = (data: NewIssueFormData) => {
-    const randomTicketNumber = Math.floor(10000 + Math.random() * 90000);
-    const newTicketId = `HW/2026/${randomTicketNumber}`;
-    const newId = `spotfix-${Date.now()}`;
-
-    let dept = 'H/West Ward Engineering Desk';
-    let badgeColor = 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
-    let badgeText = 'Community Reported';
-
-    if (data.category === 'Road Damage') {
-      dept = 'Executive Engineer (Roads & Maintenance)';
-      badgeColor = 'bg-rose-500/15 text-rose-400 border-rose-500/30';
-      badgeText = 'Pothole Alert';
-    } else if (data.category === 'Sanitation') {
-      dept = 'Solid Waste Management (SWM)';
-      badgeColor = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
-      badgeText = 'Kachra Alert';
-    } else if (data.category === 'Waterlogging') {
-      dept = 'Storm Water Drains (SWD)';
-      badgeColor = 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30';
-      badgeText = 'Waterlogging Lafda';
-    } else if (data.category === 'Streetlights') {
-      dept = 'Mechanical & Electrical (M&E)';
-      badgeColor = 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30';
-      badgeText = 'Light Lagao';
-    }
-
-    const newIssue: CivicIssue = {
-      id: newId,
-      title: data.title.trim(),
-      badge: badgeText,
-      badgeColor,
-      location: data.roadLocality,
-      votes: 1, // starting at 1 vote as requested
-      voteTarget: 100,
-      urgency: 'High Urgency',
-      mumbaiSlangQuote: data.mumbaiSlangQuote?.trim() || 'Boss, BMC ko bolo turant inspection kare, public pareshan hai!',
-      department: dept,
-      description: data.description.trim(),
-      lastUpdated: 'Reported just now',
-      resolutionStatus: 'Active community voting towards 100 votes',
-      mcgmTicketId: newTicketId,
-      layer: 1, // creates card in Layer 1 as requested
-      category: data.category,
-      isCommunitySubmission: true,
-      citizenConfirmations: 0,
-      citizenDisputes: 0,
-      opinions: [
-        {
-          id: `op-init-${Date.now()}`,
-          author: 'Reporting Citizen',
-          roadOrSociety: data.roadLocality,
-          text: `Logged as a high-priority neighborhood issue. Needs urgent attention from BMC H/West Ward.`,
-          time: 'Just now',
-          likes: 1
-        }
-      ]
-    };
-
-    setIssues(prev => [newIssue, ...prev]);
-    setUpvotedIds(prev => new Set(prev).add(newId));
-    setIsReportModalOpen(false);
-    setActiveLayer(1);
-
-    showToast(`"${newIssue.title}" reported with Ticket ${newTicketId}! Added to Layer 1 Hotspots.`);
-
-    setTimeout(() => {
-      const el = document.getElementById('lifecycle-section');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }, 200);
-  };
-
-  // Add resident opinion feedback
-  const handleAddOpinion = (
-    issueId: string, 
-    opinionData: { author: string; roadOrSociety: string; text: string }
-  ) => {
-    const newOp: ResidentOpinion = {
-      id: `op-${Date.now()}`,
-      author: opinionData.author,
-      roadOrSociety: opinionData.roadOrSociety,
-      text: opinionData.text,
-      time: 'Just now',
-      likes: 1
-    };
-
-    setIssues(prev => prev.map(issue => {
-      if (issue.id === issueId) {
-        return {
-          ...issue,
-          opinions: [newOp, ...issue.opinions]
-        };
-      }
-      return issue;
-    }));
-
-    // Update the currently open drawer issue reference
-    if (opinionIssue && opinionIssue.id === issueId) {
-      setOpinionIssue(prev => prev ? {
-        ...prev,
-        opinions: [newOp, ...prev.opinions]
-      } : null);
-    }
-
-    showToast('Your resident feedback has been posted to the Community Feed!');
-  };
-
-  const handleLikeOpinion = (issueId: string, opinionId: string) => {
-    setIssues(prev => prev.map(issue => {
-      if (issue.id === issueId) {
-        return {
-          ...issue,
-          opinions: issue.opinions.map(op => {
-            if (op.id === opinionId) {
-              return { ...op, likes: op.likes + 1 };
-            }
-            return op;
-          })
-        };
-      }
-      return issue;
-    }));
-
-    if (opinionIssue && opinionIssue.id === issueId) {
-      setOpinionIssue(prev => prev ? {
-        ...prev,
-        opinions: prev.opinions.map(op => op.id === opinionId ? { ...op, likes: op.likes + 1 } : op)
-      } : null);
-    }
-  };
-
-  const handleSelectForLetter = (issueId: string) => {
-    setSelectedIssueId(issueId);
-    const target = issues.find(i => i.id === issueId);
-    showToast(`Loaded "${target?.title}" into Complaint Generator!`);
-    const el = document.getElementById('generator-section');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const scrollToSection = (sectionId: string) => {
-    const el = document.getElementById(sectionId);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
+    navigator.clipboard.writeText(letterText);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2500);
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0F17] text-slate-100 font-sans antialiased selection:bg-emerald-500 selection:text-slate-950">
-      
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-emerald-400 border border-emerald-500/50 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-bold animate-slide-up backdrop-blur-md">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-          <span>{toastMessage}</span>
+    <section id="generator-section" className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+      {/* Section Header */}
+      <div className="mb-8 text-center sm:text-left">
+        <span className="inline-block px-3 py-1 text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full mb-3">
+          ON-DEMAND EXECUTIVE ESCALATION
+        </span>
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-100 tracking-tight">
+          Formal BMC Complaint Email Generator
+        </h2>
+        <p className="text-slate-400 text-sm mt-1 max-w-2xl">
+          Generate an official, legally structured email addressed to the Assistant Municipal Commissioner of BMC H/West Ward citing MCGM Citizen Charter turnaround times.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* Left Column: Form Controls */}
+        <div className="lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-md shadow-xl">
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
+            <h3 className="font-bold text-slate-200 text-base">Grievance Parameters</h3>
+            <span className="text-xs px-2.5 py-1 bg-slate-800 text-slate-300 rounded-md font-mono border border-slate-700">
+              H/West Ward 400052
+            </span>
+          </div>
+
+          <form onSubmit={handleGenerate} className="space-y-4">
+            {/* SELECT TARGET ISSUE DROPDOWN */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
+                SELECT TARGET ISSUE *
+              </label>
+              <select
+                value={selectedIssueId}
+                onChange={(e) => {
+                  onSelectIssue(e.target.value);
+                  setIsGenerated(false);
+                }}
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+              >
+                <option value="" disabled>-- Select Reported Issue --</option>
+                
+                {/* Dynamically list issues from active state */}
+                {issues.map((issue) => (
+                  <option key={issue.id} value={issue.id}>
+                    {issue.title} ({issue.location})
+                  </option>
+                ))}
+
+                {/* Preset Hotspots */}
+                <optgroup label="Preset Khar West Hotspots">
+                  <option value="preset-subway">Khar Subway Waterlogging</option>
+                  <option value="preset-madhu-park">Garbage Dumping near Madhu Park</option>
+                  <option value="preset-potholes">14th Road Potholes</option>
+                  <option value="preset-linking-road">Linking Road Footpath Encroachment</option>
+                </optgroup>
+
+                {/* Other Custom Option */}
+                <option value="OTHER_CUSTOM_ISSUE">Other (Write Custom Issue)</option>
+              </select>
+
+              {/* Custom Input Box if "Other" is selected */}
+              {isOtherSelected && (
+                <div className="mt-3 animate-fade-in">
+                  <label className="block text-xs font-semibold text-emerald-400 mb-1">
+                    Describe Custom Issue:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customIssueText}
+                    onChange={(e) => setCustomIssueText(e.target.value)}
+                    placeholder="e.g. Open Manhole near Khar Station West"
+                    className="w-full bg-slate-950 border border-emerald-500/50 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-400"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Resident Full Name */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                RESIDENT FULL NAME *
+              </label>
+              <input
+                type="text"
+                required
+                value={residentName}
+                onChange={(e) => setResidentName(e.target.value)}
+                placeholder="e.g. Rajesh Khurana / Ketrapal Konar"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {/* Khar Road / Locality */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                KHAR WEST ROAD / LOCALITY *
+              </label>
+              <select
+                value={residentRoad}
+                onChange={(e) => setResidentRoad(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="1st Road, Khar West">1st Road, Khar West</option>
+                <option value="15th Road, Khar West">15th Road, Khar West</option>
+                <option value="18th Road, Khar West">18th Road, Khar West</option>
+                <option value="S.V. Road, Khar West">S.V. Road, Khar West</option>
+                <option value="Linking Road, Khar West">Linking Road, Khar West</option>
+                <option value="Khar Subway Approach">Khar Subway Approach</option>
+                <option value="Hasnabad Lane, Khar West">Hasnabad Lane, Khar West</option>
+              </select>
+            </div>
+
+            {/* Landmark & Building Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  LANDMARK / SPOT
+                </label>
+                <input
+                  type="text"
+                  value={landmark}
+                  onChange={(e) => setLandmark(e.target.value)}
+                  placeholder="e.g. Near Madhu Park gate"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                  SOCIETY / BUILDING
+                </label>
+                <input
+                  type="text"
+                  value={building}
+                  onChange={(e) => setBuilding(e.target.value)}
+                  placeholder="e.g. Silver Cascade CHS"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Urgency Level */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                URGENCY LEVEL & SLA
+              </label>
+              <select
+                value={urgency}
+                onChange={(e) => setUrgency(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500"
+              >
+                <option value="Critical Emergency: 24-48 Hour SLA">
+                  Critical Emergency: 24-48 Hour SLA (Subway Flooding / Open Drain)
+                </option>
+                <option value="High Priority: 72 Hour SLA">High Priority: 72 Hour SLA (Garbage Accumulation)</option>
+                <option value="Standard Priority: 7 Day SLA">Standard Priority: 7 Day SLA (Streetlight / Pothole Fix)</option>
+              </select>
+            </div>
+
+            {/* Contact Phone */}
+            <div>
+              <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1.5">
+                CONTACT PHONE (OPTIONAL)
+              </label>
+              <input
+                type="text"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+                placeholder="e.g. +91 98200 XXXXX"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2 text-sm text-slate-100 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+
+            {/* Submit CTA Button */}
+            <button
+              type="submit"
+              className="w-full mt-2 py-3 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2"
+            >
+              <span>⚡ Generate Official Letter</span>
+            </button>
+          </form>
         </div>
-      )}
 
-      {/* Global Navbar */}
-      <Navbar
-        totalVotes={totalVotes}
-        activeLayer={activeLayer}
-        onSelectLayer={(layer) => {
-          setActiveLayer(layer);
-          scrollToSection('lifecycle-section');
-        }}
-        onNavigate={scrollToSection}
-        onOpenReportModal={() => setIsReportModalOpen(true)}
-        onOpenTicketLookup={() => handleOpenTicketTracker()}
-      />
+        {/* Right Column: Complaint Draft Preview */}
+        <div className="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-6 backdrop-blur-md min-h-[480px] flex flex-col justify-between shadow-xl">
+          {!isGenerated ? (
+            /* Blank Placeholder State */
+            <div className="my-auto text-center py-12 px-4">
+              <div className="w-16 h-16 bg-slate-800/80 text-slate-400 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-slate-700/50">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <h4 className="text-lg font-bold text-slate-200">Complaint Draft Preview</h4>
+              <p className="text-slate-400 text-xs sm:text-sm mt-2 max-w-sm mx-auto">
+                Enter your resident details on the left and click 'Generate Official Letter' to create your formal draft.
+              </p>
+              <div className="mt-6 inline-flex items-center gap-2 text-xs text-slate-500 bg-slate-950/60 px-3 py-1.5 rounded-full border border-slate-800">
+                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span>Auto-routed to: assistantcommissioner.hwest@mcgm.gov.in</span>
+              </div>
+            </div>
+          ) : (
+            /* Generated Letter Output State */
+            <div className="flex flex-col h-full justify-between animate-fade-in">
+              <div>
+                <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-800">
+                  <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-md">
+                    OFFICIAL MCGM LEGAL ESCALATION DRAFT
+                  </span>
+                  <button
+                    onClick={handleCopyLetter}
+                    className="px-3 py-1.5 bg-emerald-500 text-slate-950 font-bold text-xs rounded-lg hover:bg-emerald-400 transition-all flex items-center gap-1.5 shadow-md"
+                  >
+                    {isCopied ? '✓ Copied to Clipboard!' : '📋 Copy Complaint Email'}
+                  </button>
+                </div>
 
-      <main>
-        {/* Section 2: Header, Hero & Student Attribution */}
-        <HeroSection
-          totalVotes={totalVotes}
-          activeHotspotsCount={activeHotspotsCount}
-          underWardActionCount={underWardActionCount}
-          resolvedCount={resolvedCount}
-          onJumpToLifecycle={(layer) => {
-            if (layer) setActiveLayer(layer);
-            scrollToSection('lifecycle-section');
-          }}
-          onJumpToGenerator={() => scrollToSection('generator-section')}
-          onOpenReportModal={() => setIsReportModalOpen(true)}
-        />
+                <div className="bg-slate-950 border border-slate-800/90 rounded-xl p-5 text-xs sm:text-sm text-slate-300 font-mono leading-relaxed space-y-3 overflow-y-auto max-h-[380px]">
+                  <p><strong>To,</strong></p>
+                  <p>The Assistant Municipal Commissioner,<br />BMC H/West Ward Office,<br />2nd Hasnabad Lane, Khar West, Mumbai - 400052.</p>
+                  <p><strong>Subject:</strong> URGENT ESCALATION: {targetTitle} at {targetLocation}</p>
+                  <p>Dear Sir/Madam,</p>
+                  <p>I am writing as a resident of <strong>{residentRoad}</strong> {landmark && `(Near ${landmark})`} {building && `, ${building}`} to formally escalate an unresolved civic issue under MCGM Citizen Charter SLAs.</p>
+                  <p><strong>DETAILS OF CIVIC GRIEVANCE:</strong><br />
+                  • Issue Title: {targetTitle}<br />
+                  • Locality / Road: {targetLocation}<br />
+                  • Responsible Department: {targetDept}<br />
+                  • Tracking Ticket Ref: {targetTicket}<br />
+                  • Urgency Level: {urgency}<br />
+                  • Resident Contact: {residentName} ({contactPhone || 'Phone on file'})</p>
+                  <p>This issue significantly affects daily commuter safety and residential hygiene in Khar West. We request immediate site inspection and contractor mobilization from H/West Ward.</p>
+                  <p>Yours faithfully,<br /><strong>{residentName || 'Concerned Khar West Resident'}</strong></p>
+                </div>
+              </div>
 
-        {/* Section 3: 3-Layer Civic Lifecycle & Dual Verification Engine */}
-        <CivicLifecycleDashboard
-          issues={issues}
-          activeLayer={activeLayer}
-          onSelectLayer={setActiveLayer}
-          upvotedIds={upvotedIds}
-          onUpvote={handleUpvote}
-          onSelectForLetter={handleSelectForLetter}
-          onOpenOpinionDrawer={(issue) => setOpinionIssue(issue)}
-          onConfirmGroundFix={handleConfirmGroundFix}
-          onUploadAfterPhoto={handleUploadAfterPhoto}
-          onPromoteToWardAction={handlePromoteToWardAction}
-          onOpenReportModal={() => setIsReportModalOpen(true)}
-          onUpdateStage={handleUpdateStage}
-          onOpenTicketLookup={handleOpenTicketTracker}
-        />
-
-        {/* Section 6: Official Ward Directory ("Whom to Approach") */}
-        <WardDirectory />
-
-        {/* Section 6: Playbook ("Complaint Like a Pro") */}
-        <ComplaintGuide
-          onScrollToGenerator={() => scrollToSection('generator-section')}
-        />
-
-        {/* Section 5: On-Demand Complaint Letter Generator */}
-        <LetterGenerator
-          issues={issues}
-          selectedIssueId={selectedIssueId}
-          onSelectIssue={setSelectedIssueId}
-        />
-      </main>
-
-      {/* Section 7: Footer Credits with Student Attribution */}
-      <Footer />
-
-      {/* Section 4: User Problem Submission Modal */}
-      <ReportIssueModal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        onSubmit={handleCreateNewIssue}
-      />
-
-      {/* Dynamic Ticket ID Search & Progress Tracker Modal */}
-      <TicketTrackerModal
-        isOpen={isTicketTrackerOpen}
-        onClose={() => setIsTicketTrackerOpen(false)}
-        issues={issues}
-        initialTicketQuery={ticketTrackerQuery}
-        onSelectLayer={(layer) => {
-          setActiveLayer(layer);
-          scrollToSection('lifecycle-section');
-        }}
-        onUpdateStage={handleUpdateStage}
-        onConfirmGroundFix={handleConfirmGroundFix}
-        onOpenReportModal={() => {
-          setIsTicketTrackerOpen(false);
-          setIsReportModalOpen(true);
-        }}
-        onUploadAfterPhoto={handleUploadAfterPhoto}
-      />
-
-      {/* Resident Opinion Side Drawer */}
-      <ResidentOpinionDrawer
-        issue={opinionIssue}
-        isOpen={opinionIssue !== null}
-        onClose={() => setOpinionIssue(null)}
-        onAddOpinion={handleAddOpinion}
-        onLikeOpinion={handleLikeOpinion}
-      />
-    </div>
+              <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+                <span>Destination: <strong>BMC H/West Ward (Hasnabad Lane)</strong></span>
+                <span className="text-emerald-400">Status: Ready to Send</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
   );
-}
+};
