@@ -102,6 +102,16 @@ export default function App() {
     }, 3500);
   };
 
+  // Delete an issue handler
+  const handleDeleteIssue = (issueId: string) => {
+    setIssues(prevIssues => {
+      const target = prevIssues.find(i => i.id === issueId);
+      const updated = prevIssues.filter(issue => issue.id !== issueId);
+      showToast(`Removed "${target?.title || 'Reported Issue'}"`);
+      return updated;
+    });
+  };
+
   // Upvoting / Downvoting (1-vote-per-user toggle) handler with dynamic re-sorting and Layer 2 auto-escalation
   const handleUpvote = (issueId: string) => {
     const isCurrentlyUpvoted = upvotedIds.has(issueId);
@@ -477,6 +487,7 @@ export default function App() {
           onSelectLayer={setActiveLayer}
           upvotedIds={upvotedIds}
           onUpvote={handleUpvote}
+          onDeleteIssue={handleDeleteIssue}
           onSelectForLetter={handleSelectForLetter}
           onOpenOpinionDrawer={(issue) => setOpinionIssue(issue)}
           onConfirmGroundFix={handleConfirmGroundFix}
@@ -543,4 +554,3 @@ export default function App() {
     </div>
   );
 }
-
