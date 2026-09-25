@@ -27,15 +27,19 @@ import {
   FileQuestion,
   Inbox,
   ArrowRight,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Trash2,
+  ShieldAlert
 } from 'lucide-react';
 
 interface CivicLifecycleDashboardProps {
   issues: CivicIssue[];
   activeLayer: 1 | 2 | 3;
+  isAdminMode?: boolean;
   onSelectLayer: (layer: 1 | 2 | 3) => void;
   upvotedIds: Set<string>;
   onUpvote: (issueId: string) => void;
+  onDeleteIssue?: (issueId: string) => void;
   onSelectForLetter: (issueId: string) => void;
   onOpenOpinionDrawer: (issue: CivicIssue) => void;
   onConfirmGroundFix: (issueId: string, isFixed: boolean) => void;
@@ -49,9 +53,11 @@ interface CivicLifecycleDashboardProps {
 export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = ({
   issues,
   activeLayer,
+  isAdminMode = false,
   onSelectLayer,
   upvotedIds,
   onUpvote,
+  onDeleteIssue,
   onSelectForLetter,
   onOpenOpinionDrawer,
   onConfirmGroundFix,
@@ -122,9 +128,17 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
         {/* Section Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between mb-10 gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2.5">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>3-Layer Civic Lifecycle &amp; Dual Verification</span>
+            <div className="flex items-center gap-2 flex-wrap mb-2.5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>3-Layer Civic Lifecycle &amp; Dual Verification</span>
+              </div>
+              {isAdminMode && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 text-xs font-black uppercase tracking-wider animate-pulse">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  <span>🛡️ Admin Mode Active</span>
+                </div>
+              )}
             </div>
             <h2 className="text-2xl sm:text-4xl font-black tracking-tight text-white">
               Khar West Civic Issue Lifecycle
@@ -272,7 +286,6 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
             </div>
 
             {currentLayerIssues.length === 0 ? (
-              /* Beautiful Empty-State Card for Layer 1 */
               <div className="rounded-3xl bg-slate-900/60 backdrop-blur-xl border border-slate-800 p-10 sm:p-14 text-center max-w-2xl mx-auto shadow-2xl relative overflow-hidden group">
                 <div className="absolute inset-0 bg-gradient-to-b from-emerald-500/5 via-transparent to-transparent pointer-events-none"></div>
                 
@@ -406,6 +419,23 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                         </div>
 
                         <div className="flex items-center gap-2">
+                          {/* CONDITIONAL ADMIN DELETE BUTTON */}
+                          {isAdminMode && onDeleteIssue && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`[ADMIN ACTION] Are you sure you want to delete "${issue.title}"?`)) {
+                                  onDeleteIssue(issue.id);
+                                }
+                              }}
+                              className="px-3 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-slate-950 border border-rose-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-md shadow-rose-500/10"
+                              title="Admin Delete Issue"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </button>
+                          )}
+
                           {canPromote && (
                             <button
                               onClick={() => onPromoteToWardAction(issue.id)}
@@ -559,7 +589,27 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                           </div>
                         </div>
 
-                        <h3 className="text-xl font-black text-white">{issue.title}</h3>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xl font-black text-white">{issue.title}</h3>
+                          
+                          {/* CONDITIONAL ADMIN DELETE BUTTON */}
+                          {isAdminMode && onDeleteIssue && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`[ADMIN ACTION] Are you sure you want to delete "${issue.title}"?`)) {
+                                  onDeleteIssue(issue.id);
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-slate-950 border border-rose-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                              title="Admin Delete Issue"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Delete</span>
+                            </button>
+                          )}
+                        </div>
+
                         <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 mt-1.5">
                           <MapPin className="w-3.5 h-3.5" />
                           <span>{issue.location}</span>
@@ -844,7 +894,7 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                       className="flex flex-col justify-between rounded-2xl bg-slate-900/80 backdrop-blur-xl border border-emerald-500/30 hover:border-emerald-400 transition-all duration-300 shadow-xl overflow-hidden"
                     >
                       <div className="p-6">
-                        {/* Dual-Verified Glowing Badge requested */}
+                        {/* Dual-Verified Glowing Badge */}
                         <div className="flex items-center justify-between gap-2 mb-3">
                           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-xs font-extrabold shadow-sm shadow-emerald-500/10">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
@@ -855,7 +905,27 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                           </span>
                         </div>
 
-                        <h3 className="text-xl font-black text-white">{issue.title}</h3>
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="text-xl font-black text-white">{issue.title}</h3>
+
+                          {/* CONDITIONAL ADMIN DELETE BUTTON */}
+                          {isAdminMode && onDeleteIssue && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`[ADMIN ACTION] Are you sure you want to delete "${issue.title}"?`)) {
+                                  onDeleteIssue(issue.id);
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-rose-500/15 hover:bg-rose-500 text-rose-400 hover:text-slate-950 border border-rose-500/40 text-xs font-bold transition-all cursor-pointer flex items-center gap-1"
+                              title="Admin Delete Issue"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>Delete</span>
+                            </button>
+                          )}
+                        </div>
+
                         <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 mt-1.5">
                           <MapPin className="w-3.5 h-3.5" />
                           <span>{issue.location}</span>
@@ -899,7 +969,7 @@ export const CivicLifecycleDashboard: React.FC<CivicLifecycleDashboardProps> = (
                           <span className="font-mono text-slate-400">{issue.mcgmTicketId}</span>
                         </div>
 
-                          <button
+                        <button
                           onClick={() => onOpenOpinionDrawer(issue)}
                           className="text-xs text-emerald-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
                         >
