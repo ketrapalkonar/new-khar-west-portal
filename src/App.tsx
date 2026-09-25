@@ -11,6 +11,7 @@ import { LetterGenerator } from './components/LetterGenerator';
 import { Footer } from './components/Footer';
 import { ReportIssueModal } from './components/ReportIssueModal';
 import { TicketTrackerModal } from './components/TicketTrackerModal';
+import { Lock, X, KeyRound } from 'lucide-react';
 
 const STORAGE_KEY_ISSUES = 'aamchi_khar_west_civic_issues_v3';
 const STORAGE_KEY_VOTES = 'aamchi_khar_west_user_upvoted_ids_v3';
@@ -28,13 +29,17 @@ export default function App() {
         }
       }
     } catch {
-      // fallback to empty state
+      // fallback
     }
     return [...INITIAL_ISSUES];
   });
 
   const [activeLayer, setActiveLayer] = useState<1 | 2 | 3>(1);
   const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
+  const [adminPinInput, setAdminPinInput] = useState<string>('');
+  const [pinError, setPinError] = useState<string | null>(null);
+
   const [upvotedIds, setUpvotedIds] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_VOTES);
@@ -55,7 +60,13 @@ export default function App() {
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Persist issues to localStorage
+  // Modals & Drawers state
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [opinionIssue, setOpinionIssue] = useState<CivicIssue | null>(null);
+  const [isTicketTrackerOpen, setIsTicketTrackerOpen] = useState<boolean>(false);
+  const [ticketTrackerQuery, setTicketTrackerQuery] = useState<string>('');
+
+  // Persist issues
   React.useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_ISSUES, JSON.stringify(issues));
@@ -64,7 +75,7 @@ export default function App() {
     }
   }, [issues]);
 
-  // Persist upvoted IDs to localStorage
+  // Persist upvotes
   React.useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY_VOTES, JSON.stringify(Array.from(upvotedIds)));
@@ -73,28 +84,10 @@ export default function App() {
     }
   }, [upvotedIds]);
 
-  // Modals & Drawers state
-  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
-  const [opinionIssue, setOpinionIssue] = useState<CivicIssue | null>(null);
-  const [isTicketTrackerOpen, setIsTicketTrackerOpen] = useState<boolean>(false);
-  const [ticketTrackerQuery, setTicketTrackerQuery] = useState<string>('');
-
-  // Live stats computation
-  const totalVotes = useMemo(() => {
-    return issues.reduce((acc, issue) => acc + issue.votes, 0);
-  }, [issues]);
-
-  const activeHotspotsCount = useMemo(() => {
-    return issues.filter(i => i.layer === 1).length;
-  }, [issues]);
-
-  const underWardActionCount = useMemo(() => {
-    return issues.filter(i => i.layer === 2).length;
-  }, [issues]);
-
-  const resolvedCount = useMemo(() => {
-    return issues.filter(i => i.layer === 3).length;
-  }, [issues]);
+  const totalVotes = useMemo(() => issues.reduce((acc, issue) => acc + issue.votes, 0), [issues]);
+  const activeHotspotsCount = useMemo(() => issues.filter(i => i.layer === 1).length, [issues]);
+  const underWardActionCount = useMemo(() => issues.filter(i => i.layer === 2).length, [issues]);
+  const resolvedCount = useMemo(() => issues.filter(i => i.layer === 3).length, [issues]);
 
   const showToast = (message: string) => {
     setToastMessage(message);
@@ -103,23 +96,32 @@ export default function App() {
     }, 3500);
   };
 
-  // Toggle Admin Mode Handler with Passcode
+  // Toggle Admin Mode Handler
   const handleToggleAdminMode = () => {
     if (!isAdminMode) {
-      const pin = window.prompt('Enter BMC Ward Admin Passcode (Default: 1234 or 400052):');
-      if (pin === '1234' || pin === '400052') {
-        setIsAdminMode(true);
-        showToast('🛡️ Admin Mode Activated! You can now delete/moderate issues.');
-      } else if (pin !== null) {
-        alert('Incorrect Admin Passcode!');
-      }
+      setAdminPinInput('');
+      setPinError(null);
+      setIsAdminModalOpen(true);
     } else {
       setIsAdminMode(false);
       showToast('Admin Mode Deactivated.');
     }
   };
 
-  // Delete an issue handler
+  // Authenticate Passcode securely
+  const handleVerifyAdminPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (adminPinInput === '1234' || adminPinInput === '400052') {
+      setIsAdminMode(true);
+      setIsAdminModalOpen(false);
+      setAdminPinInput('');
+      setPinError(null);
+      showToast('🛡️ Admin Mode Authenticated!');
+    } else {
+      setPinError('Invalid Admin Passcode. Access Denied.');
+    }
+  };
+
   const handleDeleteIssue = (issueId: string) => {
     setIssues(prevIssues => {
       const target = prevIssues.find(i => i.id === issueId);
@@ -129,11 +131,9 @@ export default function App() {
     });
   };
 
-  // Upvoting / Downvoting (1-vote-per-user toggle) handler with dynamic re-sorting and Layer 2 auto-escalation
   const handleUpvote = (issueId: string) => {
     const isCurrentlyUpvoted = upvotedIds.has(issueId);
 
-    // Toggle user vote set
     setUpvotedIds(prev => {
       const next = new Set(prev);
       if (isCurrentlyUpvoted) {
@@ -152,7 +152,6 @@ export default function App() {
           const delta = isCurrentlyUpvoted ? -1 : 1;
           const newVotes = Math.max(0, issue.votes + delta);
 
-          // Auto-escalate from Layer 1 to Layer 2 when reaching 50+ votes
           if (issue.layer === 1 && newVotes >= 50) {
             escalatedTitle = issue.title;
             const randomTicketNumber = Math.floor(10000 + Math.random() * 90000);
@@ -184,7 +183,7 @@ export default function App() {
       });
 
       if (escalatedTitle) {
-        showToast(`🔥 Auto-Escalated to Layer 2! "${escalatedTitle}" reached 50+ community upvotes!`);
+        showToast(`🔥 Auto-Escalated to Layer 2! "${escalatedTitle}" reached 50+ upvotes!`);
       } else {
         const target = prevIssues.find(i => i.id === issueId);
         if (isCurrentlyUpvoted) {
@@ -194,7 +193,6 @@ export default function App() {
         }
       }
 
-      // Sort Layer 1 issues dynamically by votes (highest first)
       return updated.sort((a, b) => {
         if (a.layer === b.layer) {
           return b.votes - a.votes;
@@ -204,7 +202,6 @@ export default function App() {
     });
   };
 
-  // 4-Stage Progress Stepper Simulation & Progression Handler
   const handleUpdateStage = (issueId: string, stage: WorkStage) => {
     setIssues(prevIssues => prevIssues.map(issue => {
       if (issue.id === issueId) {
@@ -213,14 +210,13 @@ export default function App() {
         let newBmcStatus = stageInfo?.label || issue.bmcStatus;
         let resolvedAt = issue.resolvedAt;
 
-        // Stage 4 triggers 100% completion and moves the ticket to Layer 3 Hall of Fame
         if (stage === 4) {
           newLayer = 3;
           newBmcStatus = 'Dual-Verified & Closed';
           resolvedAt = 'Just now (100% Citizen Verified)';
-          showToast(`🎉 Fix Completed & Verified! "${issue.title}" transitioned to Layer 3: Hall of Fame!`);
+          showToast(`🎉 Fix Completed & Verified! "${issue.title}" moved to Layer 3!`);
         } else {
-          showToast(`Advanced "${issue.title}" to Stage ${stage}: ${stageInfo?.label} (${stageInfo?.percent}%)`);
+          showToast(`Advanced "${issue.title}" to Stage ${stage}: ${stageInfo?.label}`);
         }
 
         return {
@@ -236,14 +232,13 @@ export default function App() {
     }));
   };
 
-  // Dual Verification: Citizen Ground Check Track (automatically completes to 100% and Layer 3)
   const handleConfirmGroundFix = (issueId: string, isFixed: boolean) => {
     setIssues(prevIssues => {
       return prevIssues.map(issue => {
         if (issue.id === issueId) {
           if (isFixed) {
             const nextConfirmations = (issue.citizenConfirmations || 0) + 1;
-            showToast(`🎉 Dual-Verification Complete! "${issue.title}" verified 100% and moved to Layer 3: Hall of Fame!`);
+            showToast(`🎉 Dual-Verification Complete! "${issue.title}" moved to Layer 3!`);
             return {
               ...issue,
               citizenConfirmations: nextConfirmations,
@@ -267,7 +262,6 @@ export default function App() {
     });
   };
 
-  // Upload after-photo ground proof
   const handleUploadAfterPhoto = (issueId: string, photoUrl: string) => {
     setIssues(prev => prev.map(issue => {
       if (issue.id === issueId) {
@@ -278,10 +272,9 @@ export default function App() {
       }
       return issue;
     }));
-    showToast('Citizen After Photo proof attached to MCGM Ticket!');
+    showToast('Citizen After Photo proof attached!');
   };
 
-  // Promote Layer 1 Hotspot to Layer 2 Ward Action
   const handlePromoteToWardAction = (issueId: string) => {
     setIssues(prev => prev.map(issue => {
       if (issue.id === issueId) {
@@ -298,12 +291,11 @@ export default function App() {
       return issue;
     }));
     setActiveLayer(2);
-    showToast('Hotspot escalated to Layer 2: Under Ward Action with active SLA clock & Stage 1 Tracker!');
+    showToast('Hotspot escalated to Layer 2: Under Ward Action!');
     const el = document.getElementById('lifecycle-section');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Open Ticket Tracker modal with optional query
   const handleOpenTicketTracker = (query?: string) => {
     if (query !== undefined) {
       setTicketTrackerQuery(query);
@@ -311,7 +303,6 @@ export default function App() {
     setIsTicketTrackerOpen(true);
   };
 
-  // Create new issue via Report Spot-Fix Modal
   const handleCreateNewIssue = (data: NewIssueFormData) => {
     const randomTicketNumber = Math.floor(10000 + Math.random() * 90000);
     const newTicketId = `HW/2026/${randomTicketNumber}`;
@@ -348,11 +339,11 @@ export default function App() {
       votes: 1,
       voteTarget: 100,
       urgency: 'High Urgency',
-      mumbaiSlangQuote: data.mumbaiSlangQuote?.trim() || 'Boss, BMC ko bolo turant inspection kare, public pareshan hai!',
+      mumbaiSlangQuote: data.mumbaiSlangQuote?.trim() || 'Boss, BMC ko bolo turant inspection kare!',
       department: dept,
       description: data.description.trim(),
       lastUpdated: 'Reported just now',
-      resolutionStatus: 'Active community voting towards 100 votes',
+      resolutionStatus: 'Active community voting',
       mcgmTicketId: newTicketId,
       layer: 1,
       category: data.category,
@@ -364,7 +355,7 @@ export default function App() {
           id: `op-init-${Date.now()}`,
           author: 'Reporting Citizen',
           roadOrSociety: data.roadLocality,
-          text: `Logged as a high-priority neighborhood issue. Needs urgent attention from BMC H/West Ward.`,
+          text: `Logged as a high-priority neighborhood issue. Needs urgent BMC attention.`,
           time: 'Just now',
           likes: 1
         }
@@ -376,7 +367,7 @@ export default function App() {
     setIsReportModalOpen(false);
     setActiveLayer(1);
 
-    showToast(`"${newIssue.title}" reported with Ticket ${newTicketId}! Added to Layer 1 Hotspots.`);
+    showToast(`"${newIssue.title}" reported with Ticket ${newTicketId}!`);
 
     setTimeout(() => {
       const el = document.getElementById('lifecycle-section');
@@ -384,7 +375,6 @@ export default function App() {
     }, 200);
   };
 
-  // Add resident opinion feedback
   const handleAddOpinion = (
     issueId: string, 
     opinionData: { author: string; roadOrSociety: string; text: string }
@@ -415,7 +405,7 @@ export default function App() {
       } : null);
     }
 
-    showToast('Your resident feedback has been posted to the Community Feed!');
+    showToast('Your resident feedback has been posted!');
   };
 
   const handleLikeOpinion = (issueId: string, opinionId: string) => {
@@ -423,12 +413,7 @@ export default function App() {
       if (issue.id === issueId) {
         return {
           ...issue,
-          opinions: issue.opinions.map(op => {
-            if (op.id === opinionId) {
-              return { ...op, likes: op.likes + 1 };
-            }
-            return op;
-          })
+          opinions: issue.opinions.map(op => op.id === opinionId ? { ...op, likes: op.likes + 1 } : op)
         };
       }
       return issue;
@@ -445,7 +430,7 @@ export default function App() {
   const handleSelectForLetter = (issueId: string) => {
     setSelectedIssueId(issueId);
     const target = issues.find(i => i.id === issueId);
-    showToast(`Loaded "${target?.title}" into Complaint Generator!`);
+    showToast(`Loaded "${target?.title}" into Generator!`);
     const el = document.getElementById('generator-section');
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
@@ -463,7 +448,7 @@ export default function App() {
     <div className="min-h-screen bg-[#0B0F17] text-slate-100 font-sans antialiased selection:bg-emerald-500 selection:text-slate-950">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-emerald-400 border border-emerald-500/50 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-bold animate-slide-up backdrop-blur-md">
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-emerald-400 border border-emerald-500/50 px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-bold backdrop-blur-md">
           <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
           <span>{toastMessage}</span>
         </div>
@@ -485,7 +470,6 @@ export default function App() {
       />
 
       <main>
-        {/* Header, Hero & Student Attribution */}
         <HeroSection
           totalVotes={totalVotes}
           activeHotspotsCount={activeHotspotsCount}
@@ -499,7 +483,6 @@ export default function App() {
           onOpenReportModal={() => setIsReportModalOpen(true)}
         />
 
-        {/* 3-Layer Civic Lifecycle & Dual Verification Engine */}
         <CivicLifecycleDashboard
           issues={issues}
           activeLayer={activeLayer}
@@ -518,15 +501,12 @@ export default function App() {
           onOpenTicketLookup={handleOpenTicketTracker}
         />
 
-        {/* Official Ward Directory */}
         <WardDirectory />
 
-        {/* Playbook ("Complaint Like a Pro") */}
         <ComplaintGuide
           onScrollToGenerator={() => scrollToSection('generator-section')}
         />
 
-        {/* On-Demand Complaint Letter Generator */}
         <LetterGenerator
           issues={issues}
           selectedIssueId={selectedIssueId}
@@ -534,17 +514,83 @@ export default function App() {
         />
       </main>
 
-      {/* Footer Credits */}
       <Footer />
 
-      {/* User Problem Submission Modal */}
+      {/* Secure Masked Admin Authentication Modal */}
+      {isAdminModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative">
+            <button
+              onClick={() => setIsAdminModalOpen(false)}
+              className="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4">
+              <KeyRound className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-xl font-black text-white mb-1">
+              BMC Ward Admin Authentication
+            </h3>
+            <p className="text-xs text-slate-400 mb-6">
+              Enter your administrative passcode to unlock issue deletion & moderation tools.
+            </p>
+
+            <form onSubmit={handleVerifyAdminPin} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1.5">
+                  Admin Passcode
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    value={adminPinInput}
+                    onChange={(e) => setAdminPinInput(e.target.value)}
+                    placeholder="••••••••"
+                    autoFocus
+                    required
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-white placeholder-slate-600 font-mono tracking-widest text-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
+                  />
+                  <Lock className="w-5 h-5 absolute right-3.5 top-3.5 text-slate-600" />
+                </div>
+              </div>
+
+              {pinError && (
+                <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-400 text-xs font-bold">
+                  {pinError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsAdminModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 transition-all"
+                >
+                  Authenticate
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Report Modal */}
       <ReportIssueModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
         onSubmit={handleCreateNewIssue}
       />
 
-      {/* Dynamic Ticket ID Search & Progress Tracker Modal */}
+      {/* Ticket Tracker Modal */}
       <TicketTrackerModal
         isOpen={isTicketTrackerOpen}
         onClose={() => setIsTicketTrackerOpen(false)}
@@ -563,7 +609,7 @@ export default function App() {
         onUploadAfterPhoto={handleUploadAfterPhoto}
       />
 
-      {/* Resident Opinion Side Drawer */}
+      {/* Resident Opinion Drawer */}
       <ResidentOpinionDrawer
         issue={opinionIssue}
         isOpen={opinionIssue !== null}
