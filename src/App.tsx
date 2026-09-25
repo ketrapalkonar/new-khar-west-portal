@@ -34,6 +34,7 @@ export default function App() {
   });
 
   const [activeLayer, setActiveLayer] = useState<1 | 2 | 3>(1);
+  const [isAdminMode, setIsAdminMode] = useState<boolean>(false);
   const [upvotedIds, setUpvotedIds] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_VOTES);
@@ -100,6 +101,22 @@ export default function App() {
     setTimeout(() => {
       setToastMessage(null);
     }, 3500);
+  };
+
+  // Toggle Admin Mode Handler with Passcode
+  const handleToggleAdminMode = () => {
+    if (!isAdminMode) {
+      const pin = window.prompt('Enter BMC Ward Admin Passcode (Default: 1234 or 400052):');
+      if (pin === '1234' || pin === '400052') {
+        setIsAdminMode(true);
+        showToast('🛡️ Admin Mode Activated! You can now delete/moderate issues.');
+      } else if (pin !== null) {
+        alert('Incorrect Admin Passcode!');
+      }
+    } else {
+      setIsAdminMode(false);
+      showToast('Admin Mode Deactivated.');
+    }
   };
 
   // Delete an issue handler
@@ -456,6 +473,8 @@ export default function App() {
       <Navbar
         totalVotes={totalVotes}
         activeLayer={activeLayer}
+        isAdminMode={isAdminMode}
+        onToggleAdminMode={handleToggleAdminMode}
         onSelectLayer={(layer) => {
           setActiveLayer(layer);
           scrollToSection('lifecycle-section');
@@ -484,6 +503,7 @@ export default function App() {
         <CivicLifecycleDashboard
           issues={issues}
           activeLayer={activeLayer}
+          isAdminMode={isAdminMode}
           onSelectLayer={setActiveLayer}
           upvotedIds={upvotedIds}
           onUpvote={handleUpvote}
